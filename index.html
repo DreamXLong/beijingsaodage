@@ -266,7 +266,7 @@
 		</div>
 	</div>
 	<script>
-		var oldArr = [], timel, resultHtml = "", butText = '扫大哥', dataType, index = -1;
+		var oldArr = [], timel, resultHtml = "", butText = '扫大哥', dataType, index = -1; defaultAddress=null;
 		var flag = false;
 		var interval;
 		var scanNum = 0;
@@ -289,11 +289,6 @@
         $("#select").html(selectHtml);
 		$("#select").change(function(){
 			$("#adds").val($(this).val())
-			arrData.map(item=>{
-				if(item.address == $(this).val()) {
-					geName = item.name;
-				}
-			})
 		})
 		// --顶部点击扫大哥开始
 		$("#api-key").val('CB2X6SXZDQ7KJ64FQ9UU1REE6K2PG13H72');
@@ -304,7 +299,6 @@
 				return false;
 			}
 			scanNum = 0;
-			oldArr = [];
 		    scanNumSetting();
            if(flag) {
 			        flag = false;
@@ -314,9 +308,11 @@
 					document.title = '扫大哥';//截取字符重新赋值给title
 		   }else{
 			        flag = true;
+					oldArr = [];
 					getJson(dataId);
 					clearInterval(interval);
 					titleRollingStop();
+					defaultAddress = dataId;
 					$(`#blockDataout`).html(''); //添加结果
 					interval = setInterval(function () { getJson(dataId); }, 4000);
 					$(this).text('停止');
@@ -334,36 +330,56 @@
 		})
 		 // 通知
 
-		//  function notice(arrData) {
-		// 	 $.post({
-		// 		url: 'https://chat.ppss.com/brother',
-		// 		type: 'post',
-		// 		dataType: 'json',
-		// 		headers: {'Content-Type':"application/json;charset=utf-8"},
-		// 		data: JSON.stringify({robot_key:'f9c4dade-c64a-4a55-b30e-e328b33ef314',data:arrData}),
-		// 		timeout: 18000,
-		// 		success: function(res) {
+		 function notice(arrData) {
+			 $.post({
+				url: 'https://chat.ppss.com/brother',
+				type: 'post',
+				dataType: 'json',
+				headers: {'Content-Type':"application/json;charset=utf-8"},
+				data: JSON.stringify({robot_key:'f9c4dade-c64a-4a55-b30e-e328b33ef314',data:arrData}),
+				timeout: 18000,
+				success: function(res) {
                    
-		// 		}
-		// 	 })
-		//  }
+				}
+			 })
+		 }
 		// --顶部扫大哥结束
 		// 获取json
 		function getJson(address) {
 			let apikey=$("#api-key").val() || "CB2X6SXZDQ7KJ64FQ9UU1REE6K2PG13H72";
+			arrData.map(item=>{
+				if(item.address == address) {
+					geName = item.name;
+				}
+			})
 			$.get({
 				url: `https://api.etherscan.io/api?module=account&action=txlist&address=${address}&apikey=${apikey}&sort=desc`,
 				type: 'get',
 				dataType: 'json',
 				timeout: 18000,
 				success: function (data) {
+					scanNum += 1;
+					scanNumSetting();
 					if (data && data.status == 1) {
 						var newData = data.result;
+						// 防止前面的请求太慢替换新的数据
+						if(defaultAddress != address) {return false;}
+
 						if (oldArr.length == 0) {
+							//第一次什么都不做
 							oldArr = newData;
 						} else {
+							var haveNewDeal = true;
 							// 判断是否有新的交易
-							if(newData[0].blockNumber == oldArr[0].blockNumber) {return false;}
+							if(newData[0].blockNumber == oldArr[0].blockNumber) {
+								if(newData.length != oldArr.length){
+									oldArr = newData;
+								}
+								haveNewDeal = false;
+							}
+
+							if(haveNewDeal == false){return haveNewDeal};
+							// 处理新交易
 							var changeNum = newData.length - oldArr.length;
 							var changeDic = {};
 							for (var i = 0; i < changeNum; ++i) {
@@ -411,8 +427,7 @@
 						}
 					}
 
-					scanNum += 1;
-					scanNumSetting();
+					
 				}
 			})
 		}
